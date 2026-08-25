@@ -101,7 +101,7 @@ class _ShopTabState extends State<ShopTab> {
                     : GridView.builder(
                         controller: _scroll,
                         padding: const EdgeInsets.all(12),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 10, crossAxisSpacing: 10, childAspectRatio: 0.62),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 0.66),
                         itemCount: _products.length,
                         itemBuilder: (_, i) => ProductCard(product: _products[i]),
                       ),

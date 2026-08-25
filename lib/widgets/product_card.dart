@@ -4,6 +4,8 @@ import '../state/store_state.dart';
 import '../theme.dart';
 import '../screens/product_screen.dart';
 
+/// Fresh grocery-style product card: tinted image, discount badge, unit line,
+/// bold price and a circular add button that expands into a compact stepper.
 class ProductCard extends StatelessWidget {
   const ProductCard({super.key, required this.product});
   final Map<String, dynamic> product;
@@ -15,54 +17,58 @@ class ProductCard extends StatelessWidget {
     final cur = state.currency;
     final off = (product['discount_percent'] ?? 0) as int;
     final img = product['image']?.toString();
+    final unit = (product['unit'] ?? '').toString();
     final qty = state.qtyOf(product['id'] as int);
 
     return InkWell(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(18),
       onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProductScreen(productId: product['id'] as int))),
       child: Container(
-        decoration: softCard(radius: 16),
+        decoration: softCard(radius: 18),
         clipBehavior: Clip.antiAlias,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          // Image
           AspectRatio(
-            aspectRatio: 1,
+            aspectRatio: 1.04,
             child: Stack(children: [
               Positioned.fill(
-                child: img != null
-                    ? Image.network(img, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _ph())
-                    : _ph(),
+                child: Container(
+                  color: brandTint(brand, 0.05),
+                  padding: const EdgeInsets.all(8),
+                  child: img != null
+                      ? Image.network(img, fit: BoxFit.contain, errorBuilder: (_, __, ___) => _ph())
+                      : _ph(),
+                ),
               ),
               if (off > 0)
                 Positioned(left: 8, top: 8, child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(color: kDanger, borderRadius: BorderRadius.circular(6)),
-                  child: Text('$off% ছাড়', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(color: kDanger, borderRadius: BorderRadius.circular(20)),
+                  child: Text('-$off%', style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.w800)),
                 )),
             ]),
           ),
+          // Info
           Padding(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.fromLTRB(11, 9, 11, 11),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(product['name'] ?? '', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: kInk, height: 1.25)),
-              const SizedBox(height: 6),
-              Row(children: [
-                Text('$cur${money.n((product['price'] ?? 0) as num)}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: kInk)),
-                if (off > 0) ...[
-                  const SizedBox(width: 5),
-                  Text('$cur${money.n((product['compare_price'] ?? 0) as num)}', style: const TextStyle(fontSize: 11, color: kFaint, decoration: TextDecoration.lineThrough)),
-                ],
+              Text(product['name'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kInk, height: 1.2)),
+              const SizedBox(height: 2),
+              Text(unit.isNotEmpty ? unit : 'প্রতি একক', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: kFaint)),
+              const SizedBox(height: 9),
+              Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                    if (off > 0)
+                      Text('$cur${money.n((product['compare_price'] ?? 0) as num)}', style: const TextStyle(fontSize: 11, color: kFaint, decoration: TextDecoration.lineThrough)),
+                    Text('$cur${money.n((product['price'] ?? 0) as num)}', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: brand, height: 1.1)),
+                  ]),
+                ),
+                const SizedBox(width: 6),
+                qty == 0
+                    ? _AddButton(brand: brand, onTap: () => state.addToCart(product))
+                    : _Stepper(brand: brand, qty: qty, onMinus: () => state.setQty(product['id'] as int, qty - 1), onPlus: () => state.setQty(product['id'] as int, qty + 1)),
               ]),
-              const SizedBox(height: 8),
-              qty == 0
-                  ? SizedBox(
-                      width: double.infinity, height: 34,
-                      child: OutlinedButton(
-                        style: OutlinedButton.styleFrom(foregroundColor: brand, side: BorderSide(color: brand), minimumSize: const Size.fromHeight(34), padding: EdgeInsets.zero),
-                        onPressed: () => state.addToCart(product),
-                        child: const Text('কার্টে যোগ', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
-                      ),
-                    )
-                  : _Stepper(brand: brand, qty: qty, onMinus: () => state.setQty(product['id'] as int, qty - 1), onPlus: () => state.setQty(product['id'] as int, qty + 1)),
             ]),
           ),
         ]),
@@ -70,7 +76,23 @@ class ProductCard extends StatelessWidget {
     );
   }
 
-  Widget _ph() => Container(color: const Color(0xFFF1F5F9), child: const Center(child: Text('🛍️', style: TextStyle(fontSize: 34))));
+  Widget _ph() => const Center(child: Text('🛍️', style: TextStyle(fontSize: 40)));
+}
+
+class _AddButton extends StatelessWidget {
+  const _AddButton({required this.brand, required this.onTap});
+  final Color brand;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) => Material(
+        color: brand,
+        borderRadius: BorderRadius.circular(11),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(11),
+          onTap: onTap,
+          child: const SizedBox(width: 36, height: 36, child: Icon(Icons.add_rounded, color: Colors.white, size: 22)),
+        ),
+      );
 }
 
 class _Stepper extends StatelessWidget {
@@ -80,13 +102,13 @@ class _Stepper extends StatelessWidget {
   final VoidCallback onMinus, onPlus;
   @override
   Widget build(BuildContext context) => Container(
-        height: 34,
-        decoration: BoxDecoration(color: brand, borderRadius: BorderRadius.circular(9)),
-        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        height: 36,
+        decoration: BoxDecoration(color: brand, borderRadius: BorderRadius.circular(11)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
           _btn(Icons.remove_rounded, onMinus),
-          Text('$qty', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15)),
+          Container(constraints: const BoxConstraints(minWidth: 20), alignment: Alignment.center, child: Text('$qty', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14))),
           _btn(Icons.add_rounded, onPlus),
         ]),
       );
-  Widget _btn(IconData i, VoidCallback f) => InkWell(onTap: f, child: SizedBox(width: 38, height: 34, child: Icon(i, color: Colors.white, size: 18)));
+  Widget _btn(IconData i, VoidCallback f) => InkWell(onTap: f, borderRadius: BorderRadius.circular(11), child: SizedBox(width: 32, height: 36, child: Icon(i, color: Colors.white, size: 17)));
 }

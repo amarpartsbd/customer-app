@@ -1,28 +1,30 @@
 import 'package:flutter/material.dart';
 
-/// ── Brand tokens ──────────────────────────────────────────────
-const kNavy = Color(0xFF0D1B3E); // Turn360 deep navy (hero/headers)
-const kInk = Color(0xFF0F172A); // primary text
-const kMuted = Color(0xFF64748B); // secondary text
-const kFaint = Color(0xFF94A3B8); // hints
-const kLine = Color(0xFFE9EDF3); // hairline borders
-const kBg = Color(0xFFF4F6FB); // app background
-const kSuccess = Color(0xFF0EA96E);
-const kDanger = Color(0xFFE11D48);
+/// ── Brand tokens (fresh grocery palette) ──────────────────────
+const kInk = Color(0xFF14231B); // primary text (warm ink)
+const kMuted = Color(0xFF6B7B72); // secondary text
+const kFaint = Color(0xFFA0ABA4); // hints
+const kLine = Color(0xFFEBEFEA); // hairline borders
+const kBg = Color(0xFFF6F8F4); // app background (barely-green)
+const kSuccess = Color(0xFF16A34A);
+const kDanger = Color(0xFFE23744);
 const kWarning = Color(0xFFEA580C);
 
 /// Soft, layered card shadow used across the app.
 const kCardShadow = [
-  BoxShadow(color: Color(0x0A0F172A), blurRadius: 18, offset: Offset(0, 8)),
+  BoxShadow(color: Color(0x0F14231B), blurRadius: 20, offset: Offset(0, 10)),
   BoxShadow(color: Color(0x05000000), blurRadius: 2, offset: Offset(0, 1)),
 ];
 
-/// A premium 2-stop gradient from navy into the company's brand colour.
+/// A rich 2-stop gradient built from the company's brand colour (grocery feel).
 LinearGradient brandGradient(Color brand) => LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [kNavy, Color.lerp(brand, kNavy, 0.15) ?? brand],
+      colors: [brand, Color.lerp(brand, Colors.black, 0.24) ?? brand],
     );
+
+/// A very light tint of the brand colour — used behind product images / chips.
+Color brandTint(Color brand, [double a = 0.08]) => Color.lerp(Colors.white, brand, a) ?? Colors.white;
 
 /// Semantic colour for an order/return status string.
 Color statusColor(String s) {

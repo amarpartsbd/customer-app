@@ -21,7 +21,7 @@ class _HomeShellState extends State<HomeShell> {
   Widget build(BuildContext context) {
     final state = context.watch<StoreState>();
     final brand = state.brandColor;
-    final pages = [HomeTab(onSeeAll: () => goTo(1)), const ShopTab(), const CartTab(), const AccountTab()];
+    final pages = [HomeTab(onSeeAll: () => goTo(1), onCart: () => goTo(2)), const ShopTab(), const CartTab(), const AccountTab()];
 
     return Scaffold(
       body: IndexedStack(index: _index, children: pages),
