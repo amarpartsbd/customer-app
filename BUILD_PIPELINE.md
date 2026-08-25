@@ -23,11 +23,15 @@ keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -vali
 **Callback auth (must equal the ERP's `APPBUILD_CALLBACK_SECRET`):**
 - `APPBUILD_CALLBACK_SECRET` — any long random string
 
-**APK storage (S3 or Cloudflare R2, public bucket):**
-- `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_REGION`
-- `S3_BUCKET` — bucket name
-- `S3_PUBLIC_BASE` — public URL base, e.g. `https://cdn.yourdomain.com`
-- `S3_ENDPOINT` — only for R2 (e.g. `https://<acct>.r2.cloudflarestorage.com`)
+**APK storage (uploaded to the ERP VPS over SSH, served by nginx):**
+- `VPS_SSH_KEY` — the **private** key (whole file) of a deploy keypair whose public
+  key is in the VPS user's `~/.ssh/authorized_keys`
+- `VPS_HOST` — e.g. `72.60.111.174` (or `erp.sahin.cloud`)
+- `VPS_USER` — e.g. `root`
+- `VPS_PORT` — SSH port (optional; defaults to `22`)
+- `VPS_APK_PATH` — server dir the APK is copied into, must be web-served,
+  e.g. `/var/www/erp.sahin.cloud/public/apps`
+- `VPS_PUBLIC_BASE` — public URL of that dir, e.g. `https://erp.sahin.cloud/apps`
 
 ### 2. The ERP — `.env`
 ```

@@ -57,20 +57,24 @@ jobs:
       - name: Build APK
         run: flutter build apk --release
 
-      # Upload to S3 / Cloudflare R2 (public bucket).
-      - name: Upload APK
+      # Upload the signed APK to the ERP VPS over SSH (served publicly by nginx).
+      - name: Upload APK to VPS
         id: upload
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ${{ secrets.S3_REGION }}
         run: |
-          KEY="apps/${PACKAGE_ID}-v${VERSION_CODE}.apk"
-          ENDPOINT_ARG=""
-          if [ -n "${{ secrets.S3_ENDPOINT }}" ]; then ENDPOINT_ARG="--endpoint-url ${{ secrets.S3_ENDPOINT }}"; fi
-          aws s3 cp build/app/outputs/flutter-apk/app-release.apk \
-            "s3://${{ secrets.S3_BUCKET }}/${KEY}" $ENDPOINT_ARG --content-type application/vnd.android.package-archive
-          echo "url=${{ secrets.S3_PUBLIC_BASE }}/${KEY}" >> "$GITHUB_OUTPUT"
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "${VPS_PORT:-22}" -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+          FN="${PACKAGE_ID}-v${VERSION_CODE}.apk"
+          DEST="${{ secrets.VPS_APK_PATH }}"
+          ssh -i ~/.ssh/deploy_key -p "${VPS_PORT:-22}" \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "mkdir -p '$DEST'"
+          scp -i ~/.ssh/deploy_key -P "${VPS_PORT:-22}" \
+            build/app/outputs/flutter-apk/app-release.apk \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${DEST}/${FN}"
+          echo "url=${{ secrets.VPS_PUBLIC_BASE }}/${FN}" >> "$GITHUB_OUTPUT"
+        env:
+          VPS_PORT: ${{ secrets.VPS_PORT }}
 
       - name: Callback → ready
         if: success()
