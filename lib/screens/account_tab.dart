@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../state/store_state.dart';
 import '../theme.dart';
@@ -11,7 +12,7 @@ class AccountTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = context.watch<StoreState>();
     return Scaffold(
-      appBar: AppBar(title: const Text('অ্যাকাউন্ট')),
+      appBar: state.isLoggedIn ? AppBar(title: const Text('অ্যাকাউন্ট')) : null,
       body: state.isLoggedIn ? const _LoggedIn() : const _Auth(),
     );
   }
@@ -119,44 +120,66 @@ class _AuthState extends State<_Auth> {
 
   @override
   Widget build(BuildContext context) {
-    final brand = context.watch<StoreState>().brandColor;
-    return ListView(padding: const EdgeInsets.all(20), children: [
-      const SizedBox(height: 8),
-      Center(child: Container(height: 76, width: 76, decoration: BoxDecoration(color: brandTint(brand, 0.10), shape: BoxShape.circle), child: Icon(Icons.person_rounded, size: 40, color: brand))),
-      const SizedBox(height: 14),
-      Text(_register ? 'অ্যাকাউন্ট তৈরি করুন' : 'স্বাগতম!', textAlign: TextAlign.center, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: kInk)),
-      const SizedBox(height: 4),
-      Text(_register ? 'দ্রুত চেকআউট ও অর্ডার হিস্ট্রির জন্য' : 'আপনার অ্যাকাউন্টে প্রবেশ করুন', textAlign: TextAlign.center, style: const TextStyle(color: kMuted, fontSize: 13)),
-      const SizedBox(height: 22),
+    final state = context.watch<StoreState>();
+    final brand = state.brandColor;
+    return ListView(padding: EdgeInsets.zero, children: [
+      // ── Brand hero panel (premium, website-style) ──
+      AnnotatedRegion<SystemUiOverlayStyle>(
+        value: const SystemUiOverlayStyle(statusBarColor: Colors.transparent, statusBarIconBrightness: Brightness.light, statusBarBrightness: Brightness.dark),
+        child: Container(
+          decoration: BoxDecoration(gradient: brandGradient(brand), borderRadius: const BorderRadius.vertical(bottom: Radius.circular(30))),
+          padding: EdgeInsets.fromLTRB(24, MediaQuery.of(context).padding.top + 20, 24, 28),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(height: 58, width: 58, decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(18)), child: const Icon(Icons.storefront_rounded, color: Colors.white, size: 30)),
+            const SizedBox(height: 16),
+            Text(_register ? 'অ্যাকাউন্ট তৈরি করুন' : 'আবার স্বাগতম 👋', style: const TextStyle(color: Colors.white, fontSize: 23, fontWeight: FontWeight.w800, letterSpacing: -0.3)),
+            const SizedBox(height: 5),
+            Text(_register ? '${state.storeName}-এ যোগ দিয়ে দ্রুত অর্ডার করুন' : '${state.storeName}-এ প্রবেশ করুন', style: const TextStyle(color: Colors.white70, fontSize: 13.5)),
+            const SizedBox(height: 18),
+            const Wrap(spacing: 8, runSpacing: 8, children: [
+              _Benefit(Icons.local_shipping_rounded, 'দ্রুত ডেলিভারি'),
+              _Benefit(Icons.verified_rounded, '১০০% অরিজিনাল'),
+              _Benefit(Icons.lock_rounded, 'নিরাপদ পেমেন্ট'),
+            ]),
+          ]),
+        ),
+      ),
 
-      // Segmented toggle
-      Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(color: const Color(0xFFEFF3ED), borderRadius: BorderRadius.circular(14)),
-        child: Row(children: [
-          _seg('লগইন', !_register, brand, () => setState(() { _register = false; _error = null; })),
-          _seg('রেজিস্টার', _register, brand, () => setState(() { _register = true; _error = null; })),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(20, 22, 20, 24),
+        child: Column(children: [
+          // Segmented toggle
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(color: const Color(0xFFEFF3ED), borderRadius: BorderRadius.circular(14)),
+            child: Row(children: [
+              _seg('লগইন', !_register, brand, () => setState(() { _register = false; _error = null; })),
+              _seg('রেজিস্টার', _register, brand, () => setState(() { _register = true; _error = null; })),
+            ]),
+          ),
+          const SizedBox(height: 20),
+
+          if (_register) ...[
+            _f(_name, 'নাম', Icons.person_outline_rounded),
+            _f(_phone, 'মোবাইল নম্বর', Icons.phone_outlined, keyboard: TextInputType.phone),
+            _f(_email, 'ইমেইল (ঐচ্ছিক)', Icons.mail_outline_rounded, keyboard: TextInputType.emailAddress),
+            _f(_password, 'পাসওয়ার্ড', Icons.lock_outline_rounded, obscure: true),
+          ] else ...[
+            _f(_login, 'মোবাইল বা ইমেইল', Icons.person_outline_rounded),
+            _f(_password, 'পাসওয়ার্ড', Icons.lock_outline_rounded, obscure: true),
+          ],
+
+          if (_error != null) Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(children: [const Icon(Icons.error_outline_rounded, color: kDanger, size: 16), const SizedBox(width: 6), Expanded(child: Text(_error!, style: const TextStyle(color: kDanger, fontSize: 12.5)))]),
+          ),
+          FilledButton(
+            onPressed: _loading ? null : _submit,
+            child: _loading ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : Text(_register ? 'অ্যাকাউন্ট তৈরি করুন' : 'লগইন করুন'),
+          ),
+          const SizedBox(height: 14),
+          Text('🔒 আপনার তথ্য ১০০% সুরক্ষিত', textAlign: TextAlign.center, style: TextStyle(color: kFaint, fontSize: 11.5, fontWeight: FontWeight.w500)),
         ]),
-      ),
-      const SizedBox(height: 20),
-
-      if (_register) ...[
-        _f(_name, 'নাম', Icons.person_outline_rounded),
-        _f(_phone, 'মোবাইল নম্বর', Icons.phone_outlined, keyboard: TextInputType.phone),
-        _f(_email, 'ইমেইল (ঐচ্ছিক)', Icons.mail_outline_rounded, keyboard: TextInputType.emailAddress),
-        _f(_password, 'পাসওয়ার্ড', Icons.lock_outline_rounded, obscure: true),
-      ] else ...[
-        _f(_login, 'মোবাইল বা ইমেইল', Icons.person_outline_rounded),
-        _f(_password, 'পাসওয়ার্ড', Icons.lock_outline_rounded, obscure: true),
-      ],
-
-      if (_error != null) Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: Row(children: [const Icon(Icons.error_outline_rounded, color: kDanger, size: 16), const SizedBox(width: 6), Expanded(child: Text(_error!, style: const TextStyle(color: kDanger, fontSize: 12.5)))]),
-      ),
-      FilledButton(
-        onPressed: _loading ? null : _submit,
-        child: _loading ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : Text(_register ? 'অ্যাকাউন্ট তৈরি করুন' : 'লগইন করুন'),
       ),
     ]);
   }
@@ -184,5 +207,22 @@ class _AuthState extends State<_Auth> {
           controller: c, obscureText: obscure, keyboardType: keyboard,
           decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon, size: 20, color: kFaint), fillColor: const Color(0xFFF8FAF7)),
         ),
+      );
+}
+
+/// A small frosted benefit pill shown on the auth hero panel.
+class _Benefit extends StatelessWidget {
+  const _Benefit(this.icon, this.label);
+  final IconData icon;
+  final String label;
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(30)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, color: Colors.white, size: 14),
+          const SizedBox(width: 5),
+          Text(label, style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w600)),
+        ]),
       );
 }

@@ -112,8 +112,29 @@ class _ShopTabState extends State<ShopTab> {
     );
   }
 
-  Widget _chip(String label, bool sel, VoidCallback onTap) => Padding(
-        padding: const EdgeInsets.only(right: 8),
-        child: ChoiceChip(label: Text(label), selected: sel, onSelected: (_) => onTap()),
-      );
+  Widget _chip(String label, bool sel, VoidCallback onTap) {
+    final brand = context.read<StoreState>().brandColor;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+          decoration: BoxDecoration(
+            color: sel ? brand : Colors.white,
+            borderRadius: BorderRadius.circular(30),
+            border: Border.all(color: sel ? brand : kLine),
+            boxShadow: sel
+                ? [BoxShadow(color: brand.withValues(alpha: 0.28), blurRadius: 10, offset: const Offset(0, 4))]
+                : null,
+          ),
+          child: Text(
+            label,
+            style: TextStyle(color: sel ? Colors.white : kInk, fontWeight: FontWeight.w600, fontSize: 13),
+          ),
+        ),
+      ),
+    );
+  }
 }

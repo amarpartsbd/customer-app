@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -94,9 +95,13 @@ class _HomeTabState extends State<HomeTab> {
             }
             final data = snap.data ?? {};
             final hero = Map<String, dynamic>.from(data['hero'] ?? {});
+            final banners = ((hero['banners'] as List?) ?? []).map((b) => Map<String, dynamic>.from(b)).toList();
             final sections = (data['sections'] as List?) ?? [];
             return SliverList.list(children: [
-              if ((hero['title'] ?? '').toString().isNotEmpty) _hero(hero, brand),
+              if (banners.isNotEmpty)
+                _BannerCarousel(banners: banners)
+              else if ((hero['title'] ?? '').toString().isNotEmpty)
+                _hero(hero, brand),
               for (final s in sections) _section(context, Map<String, dynamic>.from(s), state),
               const SizedBox(height: 26),
             ]);
@@ -138,33 +143,42 @@ class _HomeTabState extends State<HomeTab> {
       final cats = (s['categories'] as List?) ?? [];
       if (cats.isEmpty) return const SizedBox.shrink();
       final brand = state.brandColor;
+      final shown = cats.take(6).toList();
       return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _title(s['title'] ?? 'ক্যাটাগরি', onSeeAll: widget.onSeeAll),
-        SizedBox(height: 104, child: ListView.separated(
-          scrollDirection: Axis.horizontal,
+        Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          itemCount: cats.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 12),
-          itemBuilder: (_, i) {
-            final c = Map<String, dynamic>.from(cats[i]);
-            return GestureDetector(
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ShopTab(categoryId: c['id'] as int, categoryName: c['name']))),
-              child: SizedBox(width: 74, child: Column(children: [
-                Container(
-                  height: 72, width: 72,
-                  decoration: BoxDecoration(color: brandTint(brand, 0.10), borderRadius: BorderRadius.circular(20)),
-                  clipBehavior: Clip.antiAlias,
-                  padding: const EdgeInsets.all(6),
-                  child: c['image'] != null
-                      ? Image.network(c['image'], fit: BoxFit.contain, errorBuilder: (_, __, ___) => Center(child: Text('🥗', style: TextStyle(fontSize: 28, color: brand))))
-                      : const Center(child: Text('🥗', style: TextStyle(fontSize: 28))),
+          child: GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3, mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 0.9),
+            itemCount: shown.length,
+            itemBuilder: (_, i) {
+              final c = Map<String, dynamic>.from(shown[i]);
+              return GestureDetector(
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ShopTab(categoryId: c['id'] as int, categoryName: c['name']))),
+                child: Container(
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: kLine), boxShadow: kCardShadow),
+                  padding: const EdgeInsets.all(8),
+                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Container(
+                      height: 56, width: 56,
+                      decoration: BoxDecoration(color: brandTint(brand, 0.10), borderRadius: BorderRadius.circular(16)),
+                      clipBehavior: Clip.antiAlias,
+                      padding: const EdgeInsets.all(6),
+                      child: c['image'] != null
+                          ? Image.network(c['image'], fit: BoxFit.contain, errorBuilder: (_, __, ___) => Center(child: Text('🥗', style: TextStyle(fontSize: 26, color: brand))))
+                          : const Center(child: Text('🥗', style: TextStyle(fontSize: 26))),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(c['name'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11.5, color: kInk, fontWeight: FontWeight.w600)),
+                  ]),
                 ),
-                const SizedBox(height: 6),
-                Text(c['name'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11.5, color: kInk, fontWeight: FontWeight.w600)),
-              ])),
-            );
-          },
-        )),
+              );
+            },
+          ),
+        ),
       ]);
     }
     if (type == 'products') {
@@ -275,4 +289,84 @@ class _CountdownState extends State<_Countdown> {
         decoration: BoxDecoration(color: kDanger.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
         child: Text(_text, style: const TextStyle(color: kDanger, fontWeight: FontWeight.w800, fontSize: 12.5)),
       );
+}
+
+/// Swipeable, auto-scrolling promo banners (same images as the website hero).
+class _BannerCarousel extends StatefulWidget {
+  const _BannerCarousel({required this.banners});
+  final List<Map<String, dynamic>> banners;
+  @override
+  State<_BannerCarousel> createState() => _BannerCarouselState();
+}
+
+class _BannerCarouselState extends State<_BannerCarousel> {
+  final _controller = PageController();
+  int _page = 0;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.banners.length > 1) {
+      _timer = Timer.periodic(const Duration(seconds: 4), (_) {
+        if (!mounted) return;
+        final next = (_page + 1) % widget.banners.length;
+        _controller.animateToPage(next, duration: const Duration(milliseconds: 450), curve: Curves.easeOutCubic);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final brand = context.read<StoreState>().brandColor;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: Column(children: [
+        AspectRatio(
+          aspectRatio: 16 / 8,
+          child: DecoratedBox(
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), boxShadow: kCardShadow),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: PageView.builder(
+                controller: _controller,
+                onPageChanged: (i) => setState(() => _page = i),
+                itemCount: widget.banners.length,
+                itemBuilder: (_, i) {
+                  final img = widget.banners[i]['image']?.toString();
+                  if (img == null) return const ColoredBox(color: Color(0xFFEBEFEA));
+                  return Image.network(img, fit: BoxFit.cover,
+                      loadingBuilder: (c, w, p) => p == null ? w : const ColoredBox(color: Color(0xFFF1F5F4)),
+                      errorBuilder: (_, __, ___) => const ColoredBox(color: Color(0xFFEBEFEA)));
+                },
+              ),
+            ),
+          ),
+        ),
+        if (widget.banners.length > 1) ...[
+          const SizedBox(height: 10),
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            for (int i = 0; i < widget.banners.length; i++)
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                height: 6,
+                width: _page == i ? 18 : 6,
+                decoration: BoxDecoration(
+                  color: _page == i ? brand : kFaint.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+          ]),
+        ],
+      ]),
+    );
+  }
 }
