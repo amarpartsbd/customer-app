@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'config.dart';
 import 'state/store_state.dart';
@@ -7,6 +8,12 @@ import 'screens/home_shell.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  // Edge-to-edge with a transparent status bar; dark icons by default (light screens).
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.dark,
+    statusBarBrightness: Brightness.light,
+  ));
   runApp(
     ChangeNotifierProvider(
       create: (_) => StoreState()..bootstrap(),

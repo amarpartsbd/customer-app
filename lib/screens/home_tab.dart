@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../state/store_state.dart';
 import '../theme.dart';
@@ -32,9 +33,15 @@ class _HomeTabState extends State<HomeTab> {
       color: brand,
       onRefresh: () async => setState(() => _future = state.api.get('/home').then((d) => Map<String, dynamic>.from(d))),
       child: CustomScrollView(slivers: [
-        // ── Header ──────────────────────────────────────────────
+        // ── Header (brand gradient → white status-bar icons) ────
         SliverToBoxAdapter(
-          child: Container(
+          child: AnnotatedRegion<SystemUiOverlayStyle>(
+            value: const SystemUiOverlayStyle(
+              statusBarColor: Colors.transparent,
+              statusBarIconBrightness: Brightness.light,
+              statusBarBrightness: Brightness.dark,
+            ),
+            child: Container(
             decoration: BoxDecoration(
               gradient: brandGradient(brand),
               borderRadius: const BorderRadius.vertical(bottom: Radius.circular(26)),
@@ -76,6 +83,7 @@ class _HomeTabState extends State<HomeTab> {
                 ),
               ),
             ]),
+          ),
           ),
         ),
         FutureBuilder<Map<String, dynamic>>(

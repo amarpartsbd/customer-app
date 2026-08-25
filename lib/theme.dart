@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// ── Brand tokens (fresh grocery palette) ──────────────────────
 const kInk = Color(0xFF14231B); // primary text (warm ink)
@@ -61,6 +62,12 @@ ThemeData buildTheme(Color brand) {
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: false,
+      // Dark status-bar icons on the app's light screens (visible on white/kBg).
+      systemOverlayStyle: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+      ),
       titleTextStyle: TextStyle(color: kInk, fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.3),
     ),
     cardTheme: CardThemeData(

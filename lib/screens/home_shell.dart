@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/store_state.dart';
+import '../theme.dart';
 import 'home_tab.dart';
 import 'shop_tab.dart';
 import 'cart_tab.dart';
@@ -25,7 +26,13 @@ class _HomeShellState extends State<HomeShell> {
 
     return Scaffold(
       body: IndexedStack(index: _index, children: pages),
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: DecoratedBox(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: kLine)),
+          boxShadow: [BoxShadow(color: Color(0x14000000), blurRadius: 16, offset: Offset(0, -3))],
+        ),
+        child: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: goTo,
         destinations: [
@@ -38,6 +45,7 @@ class _HomeShellState extends State<HomeShell> {
           ),
           const NavigationDestination(icon: Icon(Icons.person_outline_rounded), selectedIcon: Icon(Icons.person_rounded), label: 'অ্যাকাউন্ট'),
         ],
+        ),
       ),
     );
   }
