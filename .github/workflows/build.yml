@@ -1,0 +1,87 @@
+name: Build Customer App
+
+# Triggered by the ERP via repository_dispatch (AppBuildService).
+on:
+  repository_dispatch:
+    types: [build-customer-app]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      BUILD_ID: ${{ github.event.client_payload.build_id }}
+      APP_NAME: ${{ github.event.client_payload.app_name }}
+      PACKAGE_ID: ${{ github.event.client_payload.package_id }}
+      API_URL: ${{ github.event.client_payload.api_url }}
+      PRIMARY_COLOR: ${{ github.event.client_payload.primary_color }}
+      ICON_URL: ${{ github.event.client_payload.icon_url }}
+      VERSION_NAME: ${{ github.event.client_payload.version_name }}
+      VERSION_CODE: ${{ github.event.client_payload.version_code }}
+      CALLBACK_URL: ${{ github.event.client_payload.callback_url }}
+      CALLBACK_SECRET: ${{ secrets.APPBUILD_CALLBACK_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      # Notify ERP that the build started.
+      - name: Callback → building
+        run: |
+          BODY="{\"build_id\":${BUILD_ID},\"status\":\"building\",\"log_url\":\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
+          SIG=$(printf '%s' "$BODY" | openssl dgst -sha256 -hmac "$CALLBACK_SECRET" | sed 's/^.* //')
+          curl -s -X POST "$CALLBACK_URL" -H "Content-Type: application/json" -H "X-Signature: $SIG" --data "$BODY" || true
+
+      # Release keystore from secrets.
+      - name: Write keystore
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/upload-keystore.jks
+          cat > android/key.properties <<EOF
+          storeFile=upload-keystore.jks
+          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          EOF
+
+      - name: Prepare branding
+        run: |
+          chmod +x tool/prepare.sh
+          tool/prepare.sh
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      # Upload to S3 / Cloudflare R2 (public bucket).
+      - name: Upload APK
+        id: upload
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.S3_REGION }}
+        run: |
+          KEY="apps/${PACKAGE_ID}-v${VERSION_CODE}.apk"
+          ENDPOINT_ARG=""
+          if [ -n "${{ secrets.S3_ENDPOINT }}" ]; then ENDPOINT_ARG="--endpoint-url ${{ secrets.S3_ENDPOINT }}"; fi
+          aws s3 cp build/app/outputs/flutter-apk/app-release.apk \
+            "s3://${{ secrets.S3_BUCKET }}/${KEY}" $ENDPOINT_ARG --content-type application/vnd.android.package-archive
+          echo "url=${{ secrets.S3_PUBLIC_BASE }}/${KEY}" >> "$GITHUB_OUTPUT"
+
+      - name: Callback → ready
+        if: success()
+        run: |
+          BODY="{\"build_id\":${BUILD_ID},\"status\":\"ready\",\"artifact_url\":\"${{ steps.upload.outputs.url }}\",\"version_code\":${VERSION_CODE}}"
+          SIG=$(printf '%s' "$BODY" | openssl dgst -sha256 -hmac "$CALLBACK_SECRET" | sed 's/^.* //')
+          curl -s -X POST "$CALLBACK_URL" -H "Content-Type: application/json" -H "X-Signature: $SIG" --data "$BODY"
+
+      - name: Callback → failed
+        if: failure()
+        run: |
+          BODY="{\"build_id\":${BUILD_ID},\"status\":\"failed\",\"error\":\"Build failed. See the workflow logs.\",\"log_url\":\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}"
+          SIG=$(printf '%s' "$BODY" | openssl dgst -sha256 -hmac "$CALLBACK_SECRET" | sed 's/^.* //')
+          curl -s -X POST "$CALLBACK_URL" -H "Content-Type: application/json" -H "X-Signature: $SIG" --data "$BODY" || true
