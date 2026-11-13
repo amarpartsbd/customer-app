@@ -16,7 +16,7 @@ class StoreState extends ChangeNotifier {
   /// Branding + settings from /store/config.
   Map<String, dynamic> config = {};
 
-  /// Cart: productId -> {'product': {...}, 'qty': int}
+  /// Cart: productId -> {'product': {...}, 'qty': num} (decimals for items sold by weight, e.g. 1.5 kg)
   final Map<int, Map<String, dynamic>> _cart = {};
 
   String? token;
@@ -25,6 +25,7 @@ class StoreState extends ChangeNotifier {
   bool get isLoggedIn => token != null && customer != null;
 
   Color get brandColor {
+    if (isNf) return const Color(0xFF14532D); // the website's green
     final hex = config['primary_color']?.toString();
     if (hex != null && hex.startsWith('#') && hex.length == 7) {
       return Color(int.parse('FF${hex.substring(1)}', radix: 16));
@@ -33,6 +34,46 @@ class StoreState extends ChangeNotifier {
   }
 
   String get currency => (config['currency'] ?? '৳').toString();
+
+  /// Store design from the API: 'nogorfarm' switches the app to the Nogor Farm look.
+  String? get skin => config['skin']?.toString();
+  bool get isNf => skin == 'nogorfarm';
+
+  /// Money in the store's style (Bangla digits for the Nogor Farm look).
+  String fmt(num v) => isNf ? _bnMoney(currency, v) : '$currency${_group(v)}';
+  static String _group(num v) {
+    final s = v.toStringAsFixed(v.truncateToDouble() == v ? 0 : 2);
+    final parts = s.split('.');
+    final d = parts[0].replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => ',');
+    return '$d${parts.length > 1 ? '.${parts[1]}' : ''}';
+  }
+  static String _bnMoney(String cur, num v) {
+    const bn = {'0': '০', '1': '১', '2': '২', '3': '৩', '4': '৪', '5': '৫', '6': '৬', '7': '৭', '8': '৮', '9': '৯'};
+    final s = v.round().toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => ',');
+    return cur + s.replaceAllMapped(RegExp(r'[0-9]'), (m) => bn[m[0]]!);
+  }
+
+  /* ─────────── selling rules (same as the server's Product::priceFor) ─────────── */
+
+  static double stepOf(Map<String, dynamic> p) => ((p['step'] ?? 1) as num).toDouble();
+  static double minOf(Map<String, dynamic> p) => ((p['min'] ?? 1) as num).toDouble();
+  static double defaultQtyOf(Map<String, dynamic> p) => ((p['default_qty'] ?? p['min'] ?? 1) as num).toDouble();
+
+  /// Price for a quantity: the admin's option price when the quantity is an option
+  /// (e.g. 2 kg pack), otherwise unit price × quantity.
+  static double priceFor(Map<String, dynamic> p, num qty) {
+    for (final o in (p['options'] as List? ?? const [])) {
+      if (o is Map && ((o['qty'] as num) - qty).abs() < 0.0005) return (o['price'] as num).toDouble();
+    }
+    return ((p['price'] ?? 0) as num).toDouble() * qty;
+  }
+
+  /// Compare-at (old) price for a quantity, or 0.
+  static double compareFor(Map<String, dynamic> p, num qty) {
+    final rate = ((p['compare_price'] ?? 0) as num).toDouble();
+    final cmp = rate * qty;
+    return cmp > priceFor(p, qty) ? cmp : 0;
+  }
   String get storeName {
     final app = config['app'];
     if (app is Map && (app['name']?.toString().isNotEmpty ?? false)) return app['name'].toString();
@@ -66,13 +107,13 @@ class StoreState extends ChangeNotifier {
   /* ─────────── cart ─────────── */
 
   List<Map<String, dynamic>> get cartLines => _cart.values.toList();
-  int get cartCount => _cart.values.fold(0, (s, l) => s + (l['qty'] as int));
+  /// Badge count: number of products in the cart (quantities can be weights like 1.5 kg).
+  int get cartCount => _cart.length;
   bool get cartEmpty => _cart.isEmpty;
 
-  double get cartSubtotal => _cart.values.fold(0.0, (s, l) {
-        final price = ((l['product']['price'] ?? 0) as num).toDouble();
-        return s + price * (l['qty'] as int);
-      });
+  double get cartSubtotal => _cart.values.fold(0.0, (s, l) => s + lineTotal(l));
+
+  double lineTotal(Map<String, dynamic> l) => priceFor(Map<String, dynamic>.from(l['product']), l['qty'] as num);
 
   double get deliveryCharge {
     final over = (config['free_delivery_over'] as num?)?.toDouble() ?? 0;
@@ -82,24 +123,35 @@ class StoreState extends ChangeNotifier {
 
   double get cartTotal => cartSubtotal + deliveryCharge;
 
-  int qtyOf(int productId) => _cart[productId]?['qty'] as int? ?? 0;
+  num qtyOf(int productId) => _cart[productId]?['qty'] as num? ?? 0;
 
-  void addToCart(Map<String, dynamic> product, [int qty = 1]) {
+  /// Adds [qty] (default: the product's default amount, e.g. 1 kg). Weight items keep decimals.
+  void addToCart(Map<String, dynamic> product, [num? qty]) {
     final id = product['id'] as int;
-    final cur = _cart[id]?['qty'] as int? ?? 0;
-    _cart[id] = {'product': product, 'qty': (cur + qty).clamp(1, 999)};
+    final cur = _cart[id]?['qty'] as num? ?? 0;
+    _cart[id] = {'product': product, 'qty': _norm(product, cur + (qty ?? defaultQtyOf(product)))};
     _saveCart();
     notifyListeners();
   }
 
-  void setQty(int productId, int qty) {
-    if (qty <= 0) {
+  /// Sets the line's quantity; below the product's minimum removes it.
+  void setQty(int productId, num qty) {
+    final line = _cart[productId];
+    if (line == null) return;
+    final p = Map<String, dynamic>.from(line['product']);
+    if (qty < minOf(p) - 0.0005) {
       _cart.remove(productId);
-    } else if (_cart.containsKey(productId)) {
-      _cart[productId]!['qty'] = qty.clamp(1, 999);
+    } else {
+      line['qty'] = _norm(p, qty);
     }
     _saveCart();
     notifyListeners();
+  }
+
+  /// Whole units for items not sold by weight; weights rounded to grams, capped at 999.
+  static num _norm(Map<String, dynamic> p, num q) {
+    final v = p['sold_by_weight'] == true ? (q * 1000).round() / 1000 : q.round();
+    return v.clamp(minOf(p), 999);
   }
 
   void removeFromCart(int productId) {

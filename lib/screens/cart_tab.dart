@@ -3,6 +3,9 @@ import 'package:provider/provider.dart';
 import '../state/store_state.dart';
 import '../theme.dart';
 import 'checkout_screen.dart';
+import '../skin.dart';
+import '../widgets/animated_money.dart';
+import '../widgets/nf_weight_note.dart';
 
 class CartTab extends StatelessWidget {
   const CartTab({super.key});
@@ -16,7 +19,7 @@ class CartTab extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('আপনার কার্ট${state.cartCount > 0 ? ' (${state.cartCount})' : ''}'),
+        title: Text('${state.isNf ? 'আমার ব্যাগ' : 'আপনার কার্ট'}${state.cartCount > 0 ? ' (${state.isNf ? bnDigits(state.cartCount) : state.cartCount})' : ''}'),
         actions: [
           if (lines.isNotEmpty)
             TextButton.icon(
@@ -56,7 +59,7 @@ class CartTab extends StatelessWidget {
           Icon(reached ? Icons.check_circle_rounded : Icons.local_shipping_rounded, color: brand, size: 18),
           const SizedBox(width: 8),
           Expanded(child: Text(
-            reached ? '🎉 আপনি ফ্রি ডেলিভারি পাচ্ছেন!' : 'আরও $cur${money.n(remaining)} যোগ করলেই ফ্রি ডেলিভারি!',
+            reached ? '🎉 আপনি ফ্রি ডেলিভারি পাচ্ছেন!' : 'আরও ${s.fmt(remaining)} যোগ করলেই ফ্রি ডেলিভারি!',
             style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color.lerp(brand, Colors.black, 0.15)),
           )),
         ]),
@@ -71,8 +74,9 @@ class CartTab extends StatelessWidget {
 
   Widget _tile(BuildContext context, StoreState s, Map<String, dynamic> l, String cur, Color brand) {
     final p = Map<String, dynamic>.from(l['product']);
-    final qty = l['qty'] as int;
+    final qty = l['qty'] as num;
     final id = p['id'] as int;
+    final step = StoreState.stepOf(p);
     final unit = (p['unit'] ?? '').toString();
     return Container(
       padding: const EdgeInsets.all(10),
@@ -93,12 +97,12 @@ class CartTab extends StatelessWidget {
             Expanded(child: Text(p['name'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: kInk))),
             InkWell(onTap: () => s.removeFromCart(id), borderRadius: BorderRadius.circular(20), child: const Padding(padding: EdgeInsets.all(2), child: Icon(Icons.close_rounded, size: 17, color: kFaint))),
           ]),
-          if (unit.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 1), child: Text(unit, style: const TextStyle(fontSize: 11, color: kFaint))),
+          if (s.isNf || unit.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 1), child: Text(s.isNf ? bnQty(qty, p) : unit, style: const TextStyle(fontSize: 11, color: kFaint))),
           const SizedBox(height: 8),
           Row(children: [
-            Text(money(cur, ((p['price'] ?? 0) as num) * qty), style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: brand)),
+            AnimatedMoney(s.lineTotal(l), style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: s.isNf ? Nf.red : brand)),
             const Spacer(),
-            _Stepper(brand: brand, qty: qty, onMinus: () => s.setQty(id, qty - 1), onPlus: () => s.setQty(id, qty + 1)),
+            _Stepper(brand: brand, qty: qty, label: s.isNf ? bnQty(qty, p) : null, onMinus: () => s.setQty(id, qty - step), onPlus: () => s.setQty(id, qty + step)),
           ]),
         ])),
       ]),
@@ -116,28 +120,37 @@ class CartTab extends StatelessWidget {
         boxShadow: [BoxShadow(color: Color(0x18000000), blurRadius: 24, offset: Offset(0, -6))],
       ),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        _row('সাবটোটাল', money(cur, s.cartSubtotal)),
+        if (s.isNf && NfWeightNote.kindsIn(s.cartLines.map((l) => Map<String, dynamic>.from(l['product']))).isNotEmpty) ...[
+          NfWeightNote(kinds: NfWeightNote.kindsIn(s.cartLines.map((l) => Map<String, dynamic>.from(l['product'])))),
+          const SizedBox(height: 12),
+        ],
+        _row(s.isNf ? 'পণ্যের দাম' : 'সাবটোটাল', null, amount: s.cartSubtotal),
         const SizedBox(height: 7),
-        _row('ডেলিভারি চার্জ', free ? 'ফ্রি' : money(cur, s.deliveryCharge), valueColor: free ? kSuccess : null),
+        free ? _row('ডেলিভারি চার্জ', 'ফ্রি', valueColor: kSuccess) : _row('ডেলিভারি চার্জ', null, amount: s.deliveryCharge),
         const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: DashedLine()),
-        _row('সর্বমোট', money(cur, s.cartTotal), bold: true),
+        _row(s.isNf ? 'মোট' : 'সর্বমোট', null, amount: s.cartTotal, bold: true, valueColor: s.isNf ? Nf.red : null),
         const SizedBox(height: 14),
         SizedBox(width: double.infinity, child: FilledButton(
           onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CheckoutScreen())),
           child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             const Text('চেকআউট করুন'),
             const SizedBox(width: 8),
-            Text('• ${money(cur, s.cartTotal)}', style: const TextStyle(fontWeight: FontWeight.w800)),
+            const Text('• ', style: TextStyle(fontWeight: FontWeight.w800)),
+            AnimatedMoney(s.cartTotal, style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.white, fontSize: 16)),
           ]),
         )),
       ]),
     );
   }
 
-  Widget _row(String k, String v, {bool bold = false, Color? valueColor}) => Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Text(k, style: TextStyle(color: bold ? kInk : kMuted, fontWeight: bold ? FontWeight.w800 : FontWeight.w500, fontSize: bold ? 16 : 13.5)),
-        Text(v, style: TextStyle(color: valueColor ?? kInk, fontWeight: FontWeight.w800, fontSize: bold ? 18 : 13.5)),
-      ]);
+  /// A summary row: plain text [v], or a money [amount] that rolls to its new value.
+  Widget _row(String k, String? v, {num? amount, bool bold = false, Color? valueColor}) {
+    final st = TextStyle(color: valueColor ?? kInk, fontWeight: FontWeight.w800, fontSize: bold ? 18 : 13.5);
+    return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+      Text(k, style: TextStyle(color: bold ? kInk : kMuted, fontWeight: bold ? FontWeight.w800 : FontWeight.w500, fontSize: bold ? 16 : 13.5)),
+      amount != null ? AnimatedMoney(amount, style: st) : Text(v ?? '', style: st),
+    ]);
+  }
 
   Widget _empty(BuildContext context, Color brand) => Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
         Container(height: 96, width: 96, decoration: BoxDecoration(color: brandTint(brand, 0.08), shape: BoxShape.circle), child: Icon(Icons.shopping_cart_outlined, size: 44, color: brand)),
@@ -149,9 +162,10 @@ class CartTab extends StatelessWidget {
 }
 
 class _Stepper extends StatelessWidget {
-  const _Stepper({required this.brand, required this.qty, required this.onMinus, required this.onPlus});
+  const _Stepper({required this.brand, required this.qty, required this.onMinus, required this.onPlus, this.label});
   final Color brand;
-  final int qty;
+  final num qty;
+  final String? label; // e.g. "১.৫ কেজি" (Nogor Farm look)
   final VoidCallback onMinus, onPlus;
   @override
   Widget build(BuildContext context) => Container(
@@ -159,7 +173,7 @@ class _Stepper extends StatelessWidget {
         decoration: BoxDecoration(color: brand, borderRadius: BorderRadius.circular(10)),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           _btn(Icons.remove_rounded, onMinus),
-          Container(constraints: const BoxConstraints(minWidth: 22), alignment: Alignment.center, child: Text('$qty', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14))),
+          Container(constraints: const BoxConstraints(minWidth: 22), alignment: Alignment.center, child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: Text(label ?? (qty == qty.roundToDouble() ? '${qty.round()}' : '$qty'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13)))),
           _btn(Icons.add_rounded, onPlus),
         ]),
       );

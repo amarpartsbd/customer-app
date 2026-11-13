@@ -6,7 +6,8 @@ class AppConfig {
   /// Dev tips:
   ///   Android emulator → http://10.0.2.2:8131/api/v1/store  (+ send X-Store-Id)
   ///   Real device      → https://theirshop.com/api/v1/store
-  static const String apiBaseUrl = 'https://erp.sahin.cloud/api/v1/store';
+  /// Override for local runs: flutter run --dart-define=API_URL=https://theirshop.com/api/v1/store
+  static const String apiBaseUrl = String.fromEnvironment('API_URL', defaultValue: 'https://erp.sahin.cloud/api/v1/store');
 
   /// Optional: when the base URL host can't resolve the store (e.g. shared dev
   /// host), send this company id via the X-Store-Id header. Leave blank in prod.

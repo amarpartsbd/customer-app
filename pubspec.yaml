@@ -70,6 +70,22 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  # Nogor Farm look (skin: nogorfarm): the website's fonts. Poppins (latin subset) + a
+  # Bengali-only Kalpurush, both free (OFL), converted from public/fonts on the ERP.
+  fonts:
+    - family: Poppins
+      fonts:
+        - asset: assets/fonts/Poppins-Regular.ttf
+        - asset: assets/fonts/Poppins-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Poppins-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Poppins-Bold.ttf
+          weight: 700
+    - family: Kalpurush
+      fonts:
+        - asset: assets/fonts/Kalpurush.ttf
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

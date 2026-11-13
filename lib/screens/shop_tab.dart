@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../state/store_state.dart';
 import '../theme.dart';
 import '../widgets/product_card.dart';
+import '../widgets/nf_product_card.dart';
 
 class ShopTab extends StatefulWidget {
   const ShopTab({super.key, this.categoryId, this.categoryName});
@@ -101,7 +102,11 @@ class _ShopTabState extends State<ShopTab> {
                     : GridView.builder(
                         controller: _scroll,
                         padding: const EdgeInsets.all(12),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 0.66),
+                        // Nogor Farm cards are taller (amount chooser + add button): give them a fixed height.
+                        gridDelegate: context.watch<StoreState>().isNf
+                            ? SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 10, crossAxisSpacing: 10,
+                                mainAxisExtent: NfProductCard.heightFor((MediaQuery.of(context).size.width - 24 - 10) / 2))
+                            : const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 0.66),
                         itemCount: _products.length,
                         itemBuilder: (_, i) => ProductCard(product: _products[i]),
                       ),

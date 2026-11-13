@@ -45,15 +45,19 @@ BoxDecoration softCard({double radius = 20}) => BoxDecoration(
       boxShadow: kCardShadow,
     );
 
-ThemeData buildTheme(Color brand) {
+/// [nf]: the Nogor Farm look (site fonts — Poppins + Kalpurush for Bangla — and its pale green background).
+ThemeData buildTheme(Color brand, {bool nf = false}) {
   final scheme = ColorScheme.fromSeed(seedColor: brand, brightness: Brightness.light).copyWith(
     primary: brand,
+    secondary: nf ? const Color(0xFFF5B81F) : null,
     surface: Colors.white,
   );
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
-    scaffoldBackgroundColor: kBg,
+    fontFamily: nf ? 'Poppins' : null,
+    fontFamilyFallback: nf ? const ['Kalpurush'] : null,
+    scaffoldBackgroundColor: nf ? const Color(0xFFF5F7F2) : kBg,
     splashFactory: InkSparkle.splashFactory,
     appBarTheme: const AppBarTheme(
       backgroundColor: kBg,

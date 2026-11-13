@@ -4,6 +4,9 @@ import 'package:url_launcher/url_launcher.dart';
 import '../state/store_state.dart';
 import '../theme.dart';
 import 'order_success_screen.dart';
+import '../skin.dart';
+import '../widgets/animated_money.dart';
+import '../widgets/nf_weight_note.dart';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -65,7 +68,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<StoreState>();
-    final cur = state.currency;
     final brand = state.brandColor;
     final free = state.deliveryCharge == 0 && (state.config['free_delivery_over'] as num?) != null && state.cartSubtotal >= ((state.config['free_delivery_over'] as num?)?.toDouble() ?? double.infinity);
     final onlineEnabled = state.config['online_payment_enabled'] == true;
@@ -84,7 +86,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   const SizedBox(width: 8),
                   const Text('অর্ডার কনফার্ম'),
                   const SizedBox(width: 6),
-                  Text('• ${money(cur, state.cartTotal)}', style: const TextStyle(fontWeight: FontWeight.w800)),
+                  const Text('• ', style: TextStyle(fontWeight: FontWeight.w800)),
+                  AnimatedMoney(state.cartTotal, style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.white, fontSize: 16)),
                 ]),
         ),
       )),
@@ -120,11 +123,33 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
         // Summary
         _card('অর্ডার সারাংশ', Icons.receipt_long_rounded, brand, [
-          _row('পণ্য (${state.cartCount})', money(cur, state.cartSubtotal)),
+          if (state.isNf) ...[
+            // Each item with its amount, like the website's checkout.
+            for (final l in state.cartLines) Padding(
+              padding: const EdgeInsets.only(bottom: 9),
+              child: Row(children: [
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text((l['product']['name_en'] ?? l['product']['name'] ?? '').toString(), maxLines: 1, overflow: TextOverflow.ellipsis, style: Nf.t(13.5, w: FontWeight.w600)),
+                  Text(bnQty(l['qty'] as num, Map<String, dynamic>.from(l['product'])), style: Nf.t(12, color: Nf.muted2)),
+                ])),
+                AnimatedMoney(state.lineTotal(l), style: Nf.t(13.5, w: FontWeight.w600)),
+              ]),
+            ),
+            const Divider(height: 14),
+          ],
+          _row(state.isNf ? 'পণ্যের দাম' : 'পণ্য (${state.cartCount})', null, amount: state.cartSubtotal),
           const SizedBox(height: 7),
-          _row('ডেলিভারি চার্জ', free ? 'ফ্রি' : money(cur, state.deliveryCharge), valueColor: free ? kSuccess : null),
+          free ? _row('ডেলিভারি চার্জ', 'ফ্রি', valueColor: kSuccess) : _row('ডেলিভারি চার্জ', null, amount: state.deliveryCharge),
           const Padding(padding: EdgeInsets.symmetric(vertical: 11), child: Divider(height: 1)),
-          _row('সর্বমোট', money(cur, state.cartTotal), bold: true),
+          _row(state.isNf ? 'মোট' : 'সর্বমোট', null, amount: state.cartTotal, bold: true, valueColor: state.isNf ? Nf.red : null),
+          if (state.isNf && NfWeightNote.kindsIn(state.cartLines.map((l) => Map<String, dynamic>.from(l['product']))).isNotEmpty) ...[
+            const SizedBox(height: 12),
+            NfWeightNote(kinds: NfWeightNote.kindsIn(state.cartLines.map((l) => Map<String, dynamic>.from(l['product'])))),
+          ],
+          if (state.isNf) ...[
+            const SizedBox(height: 10),
+            Text('ডেলিভারি ২৪–৪৮ ঘণ্টার মধ্যে। কাটার পর ওজনে ±৫০ গ্রাম তারতম্য হতে পারে।', style: Nf.t(12, color: Nf.muted2)),
+          ],
         ]),
 
         if (_error != null) Padding(
@@ -186,8 +211,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  Widget _row(String k, String v, {bool bold = false, Color? valueColor}) => Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Text(k, style: TextStyle(color: bold ? kInk : kMuted, fontWeight: bold ? FontWeight.w800 : FontWeight.w500, fontSize: bold ? 16 : 13.5)),
-        Text(v, style: TextStyle(color: valueColor ?? kInk, fontWeight: FontWeight.w800, fontSize: bold ? 18 : 13.5)),
-      ]);
+  /// A summary row: plain text [v], or a money [amount] that rolls to its new value.
+  Widget _row(String k, String? v, {num? amount, bool bold = false, Color? valueColor}) {
+    final st = TextStyle(color: valueColor ?? kInk, fontWeight: FontWeight.w800, fontSize: bold ? 18 : 13.5);
+    return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+      Text(k, style: TextStyle(color: bold ? kInk : kMuted, fontWeight: bold ? FontWeight.w800 : FontWeight.w500, fontSize: bold ? 16 : 13.5)),
+      amount != null ? AnimatedMoney(amount, style: st) : Text(v ?? '', style: st),
+    ]);
+  }
 }

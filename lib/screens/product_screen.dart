@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../state/store_state.dart';
 import '../theme.dart';
 import '../widgets/product_card.dart';
+import 'nf_product.dart';
 
 class ProductScreen extends StatefulWidget {
   const ProductScreen({super.key, required this.productId});
@@ -45,6 +46,7 @@ class _ProductScreenState extends State<ProductScreen> {
     if (p == null) {
       return Scaffold(appBar: AppBar(), body: const Center(child: Text('পণ্য পাওয়া যায়নি।', style: TextStyle(color: kMuted))));
     }
+    if (state.isNf) return NfProductView(product: p, related: _related);
 
     return Scaffold(
       backgroundColor: Colors.white,

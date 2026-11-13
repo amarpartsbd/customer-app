@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../state/store_state.dart';
 import '../theme.dart';
 import '../screens/product_screen.dart';
+import 'nf_product_card.dart';
 
 /// Fresh grocery-style product card: tinted image, discount badge, unit line,
 /// bold price and a circular add button that expands into a compact stepper.
@@ -13,8 +14,10 @@ class ProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<StoreState>();
+    if (state.isNf) return NfProductCard(product: product);
     final brand = state.brandColor;
     final cur = state.currency;
+    final step = StoreState.stepOf(product);
     final off = (product['discount_percent'] ?? 0) as int;
     final img = product['image']?.toString();
     final unit = (product['unit'] ?? '').toString();
@@ -67,7 +70,7 @@ class ProductCard extends StatelessWidget {
                 const SizedBox(width: 6),
                 qty == 0
                     ? _AddButton(brand: brand, onTap: () => state.addToCart(product))
-                    : _Stepper(brand: brand, qty: qty, onMinus: () => state.setQty(product['id'] as int, qty - 1), onPlus: () => state.setQty(product['id'] as int, qty + 1)),
+                    : _Stepper(brand: brand, qty: qty, onMinus: () => state.setQty(product['id'] as int, qty - step), onPlus: () => state.setQty(product['id'] as int, qty + step)),
               ]),
             ]),
           ),
@@ -98,7 +101,7 @@ class _AddButton extends StatelessWidget {
 class _Stepper extends StatelessWidget {
   const _Stepper({required this.brand, required this.qty, required this.onMinus, required this.onPlus});
   final Color brand;
-  final int qty;
+  final num qty;
   final VoidCallback onMinus, onPlus;
   @override
   Widget build(BuildContext context) => Container(
@@ -106,7 +109,7 @@ class _Stepper extends StatelessWidget {
         decoration: BoxDecoration(color: brand, borderRadius: BorderRadius.circular(11)),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           _btn(Icons.remove_rounded, onMinus),
-          Container(constraints: const BoxConstraints(minWidth: 20), alignment: Alignment.center, child: Text('$qty', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14))),
+          Container(constraints: const BoxConstraints(minWidth: 20), alignment: Alignment.center, child: Text(qty == qty.roundToDouble() ? '${qty.round()}' : '$qty', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14))),
           _btn(Icons.add_rounded, onPlus),
         ]),
       );

@@ -31,7 +31,7 @@ class StoreApp extends StatelessWidget {
     return MaterialApp(
       title: state.storeName,
       debugShowCheckedModeBanner: false,
-      theme: buildTheme(state.brandColor),
+      theme: buildTheme(state.brandColor, nf: state.isNf),
       home: switch (state.status) {
         LoadStatus.loading => const _Splash(),
         LoadStatus.error => _ErrorScreen(message: state.loadError),

@@ -6,6 +6,7 @@ import 'home_tab.dart';
 import 'shop_tab.dart';
 import 'cart_tab.dart';
 import 'account_tab.dart';
+import 'nf_home.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
@@ -22,7 +23,13 @@ class _HomeShellState extends State<HomeShell> {
   Widget build(BuildContext context) {
     final state = context.watch<StoreState>();
     final brand = state.brandColor;
-    final pages = [HomeTab(onSeeAll: () => goTo(1), onCart: () => goTo(2)), const ShopTab(), const CartTab(), const AccountTab()];
+    final nf = state.isNf;
+    final pages = [
+      nf ? NfHome(onSearch: () => goTo(1), onCart: () => goTo(2)) : HomeTab(onSeeAll: () => goTo(1), onCart: () => goTo(2)),
+      const ShopTab(),
+      const CartTab(),
+      const AccountTab(),
+    ];
 
     return Scaffold(
       body: IndexedStack(index: _index, children: pages),
@@ -37,11 +44,11 @@ class _HomeShellState extends State<HomeShell> {
         onDestinationSelected: goTo,
         destinations: [
           const NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'হোম'),
-          const NavigationDestination(icon: Icon(Icons.grid_view_outlined), selectedIcon: Icon(Icons.grid_view_rounded), label: 'শপ'),
+          NavigationDestination(icon: const Icon(Icons.grid_view_outlined), selectedIcon: const Icon(Icons.grid_view_rounded), label: nf ? 'সব পণ্য' : 'শপ'),
           NavigationDestination(
-            icon: _CartIcon(count: state.cartCount, brand: brand, filled: false),
-            selectedIcon: _CartIcon(count: state.cartCount, brand: brand, filled: true),
-            label: 'কার্ট',
+            icon: _CartIcon(count: state.cartCount, brand: brand, filled: false, bag: nf),
+            selectedIcon: _CartIcon(count: state.cartCount, brand: brand, filled: true, bag: nf),
+            label: nf ? 'ব্যাগ' : 'কার্ট',
           ),
           const NavigationDestination(icon: Icon(Icons.person_outline_rounded), selectedIcon: Icon(Icons.person_rounded), label: 'অ্যাকাউন্ট'),
         ],
@@ -52,13 +59,14 @@ class _HomeShellState extends State<HomeShell> {
 }
 
 class _CartIcon extends StatelessWidget {
-  const _CartIcon({required this.count, required this.brand, required this.filled});
+  const _CartIcon({required this.count, required this.brand, required this.filled, this.bag = false});
   final int count;
   final Color brand;
   final bool filled;
+  final bool bag;
   @override
   Widget build(BuildContext context) => Stack(clipBehavior: Clip.none, children: [
-        Icon(filled ? Icons.shopping_cart_rounded : Icons.shopping_cart_outlined),
+        Icon(bag ? (filled ? Icons.shopping_bag_rounded : Icons.shopping_bag_outlined) : (filled ? Icons.shopping_cart_rounded : Icons.shopping_cart_outlined)),
         if (count > 0)
           Positioned(right: -8, top: -6, child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
