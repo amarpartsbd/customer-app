@@ -5,6 +5,8 @@ import '../skin.dart';
 import '../state/store_state.dart';
 import '../widgets/animated_money.dart';
 import '../widgets/nf_product_card.dart';
+import '../widgets/nf_delivery_check.dart';
+import 'checkout_screen.dart';
 
 /// Product page in the Nogor Farm look — the website's product page on a phone.
 class NfProductView extends StatefulWidget {
@@ -52,7 +54,31 @@ class _NfProductViewState extends State<NfProductView> {
       bottomNavigationBar: SafeArea(child: Container(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
         decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: Nf.line))),
-        child: SizedBox(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+        // "Check delivery area" — right above "add to bag" (stores with delivery areas switched on).
+        if (cfg['delivery_check'] == true) ...[
+          SizedBox(
+            height: 44,
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                backgroundColor: Nf.pill,
+                foregroundColor: Nf.green,
+                side: const BorderSide(color: Nf.green, width: 1.5),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () => NfDeliveryCheckSheet.show(context, productId: p['id'] as int, onOrderNow: (address) {
+                // Order now: the chosen amount into the bag, then checkout with the confirmed address.
+                state.addToCart(p, _qty);
+                Navigator.of(context).push(MaterialPageRoute(builder: (_) => CheckoutScreen(initialAddress: address)));
+              }),
+              icon: const Icon(Icons.location_on_outlined, size: 19),
+              label: Text('ডেলিভারি এলাকা যাচাই করুন', style: Nf.t(14.5, w: FontWeight.w600, color: Nf.green)),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+        SizedBox(
           height: 52,
           child: FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Nf.green, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
@@ -71,6 +97,7 @@ class _NfProductViewState extends State<NfProductView> {
             ]),
           ),
         ),
+        ]),
       )),
       body: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
         // Photo

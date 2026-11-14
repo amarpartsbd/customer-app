@@ -9,7 +9,10 @@ import '../widgets/animated_money.dart';
 import '../widgets/nf_weight_note.dart';
 
 class CheckoutScreen extends StatefulWidget {
-  const CheckoutScreen({super.key});
+  const CheckoutScreen({super.key, this.initialAddress});
+
+  /// Prefill — e.g. the address just confirmed by "Check delivery area".
+  final String? initialAddress;
   @override
   State<CheckoutScreen> createState() => _CheckoutScreenState();
 }
@@ -33,6 +36,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       _phone.text = c['phone']?.toString() ?? '';
       _address.text = c['address']?.toString() ?? '';
       _city.text = c['city']?.toString() ?? '';
+    }
+    if ((widget.initialAddress ?? '').trim().isNotEmpty) {   // the address they just confirmed wins
+      _address.text = widget.initialAddress!.trim();
     }
   }
 
